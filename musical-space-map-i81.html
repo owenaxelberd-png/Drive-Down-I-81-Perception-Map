@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Musical Space Map — Drive Down I-81</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0e0e0f;
+  --bg2:#161618;
+  --bg3:#1e1e21;
+  --border:#2e2e33;
+  --border2:#3e3e45;
+  --text:#e8e6df;
+  --text2:#9e9c96;
+  --text3:#5e5c58;
+  --accent:#c8a96e;
+  --accent2:#7a9e8a;
+  --accent3:#9e7a9e;
+  --red:#c87a6e;
+  --blue:#6e8ec8;
+  --font-serif:'Libre Baskerville',Georgia,serif;
+  --font-mono:'DM Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;min-height:100vh;overflow-x:hidden;}
+header{padding:24px 32px 20px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;}
+header h1{font-family:var(--font-serif);font-size:20px;font-weight:400;font-style:italic;color:var(--text);letter-spacing:0.01em;}
+header .sub{font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;}
+.layout{display:grid;grid-template-columns:220px 1fr;height:calc(100vh - 65px);}
+.sidebar{border-right:1px solid var(--border);padding:20px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:20px;}
+.main{display:flex;flex-direction:column;overflow:hidden;}
+.toolbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.btn{background:none;border:1px solid var(--border2);color:var(--text2);font-family:var(--font-mono);font-size:11px;padding:5px 12px;cursor:pointer;letter-spacing:0.05em;transition:all 0.15s;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.active{border-color:var(--accent);color:var(--accent);background:rgba(200,169,110,0.08);}
+.btn-action{border-color:var(--border2);color:var(--text3);}
+.btn-action:hover{border-color:var(--accent2);color:var(--accent2);}
+.sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
+.canvas-wrap{position:relative;flex:1;overflow:hidden;}
+canvas{display:block;width:100%;height:100%;}
+#tooltip{position:absolute;display:none;background:var(--bg2);border:1px solid var(--border2);padding:10px 13px;max-width:220px;pointer-events:none;z-index:100;line-height:1.55;}
+#tooltip strong{color:var(--text);font-weight:500;display:block;margin-bottom:4px;}
+#tooltip .tip-cat{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;}
+#tooltip .tip-reason{color:var(--text2);font-size:11px;}
+#tooltip .tip-dist{color:var(--accent);font-size:11px;margin-top:6px;border-top:1px solid var(--border);padding-top:6px;}
+.section-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+.legend-item{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer;transition:opacity 0.15s;}
+.legend-item:hover{opacity:0.8;}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.legend-label{color:var(--text2);font-size:11px;}
+.legend-item.muted .legend-label{color:var(--text3);}
+.panel{background:var(--bg2);border:1px solid var(--border);padding:12px;}
+.panel-title{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:10px;}
+#dist-a,#dist-b{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:5px 8px;margin-bottom:6px;}
+#dist-result{font-size:12px;color:var(--accent);min-height:36px;line-height:1.6;}
+.snapshot-list{display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;}
+.snap-item{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);font-size:11px;gap:6px;}
+.snap-name{color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.snap-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-family:var(--font-mono);font-size:10px;padding:2px 5px;}
+.snap-btn:hover{color:var(--accent);}
+.diff-panel{display:none;padding:12px 20px;border-top:1px solid var(--border);background:var(--bg2);}
+.diff-panel.visible{display:block;}
+.diff-panel h3{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:8px;}
+.diff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;}
+.diff-card{background:var(--bg3);border:1px solid var(--border);padding:8px 10px;}
+.diff-card .item-name{color:var(--text);font-size:11px;margin-bottom:2px;}
+.diff-card .item-delta{font-size:11px;}
+.diff-card.large .item-delta{color:var(--accent);}
+.diff-card.medium .item-delta{color:var(--accent3);}
+.diff-card.small .item-delta{color:var(--text3);}
+#export-code{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--accent2);font-family:var(--font-mono);font-size:10px;padding:6px 8px;resize:none;height:60px;margin-top:6px;}
+#import-code{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:10px;padding:6px 8px;resize:none;height:44px;margin-top:4px;}
+.cluster-label{pointer-events:none;}
+input[type=text]{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:4px 8px;width:100%;}
+input[type=text]:focus{outline:none;border-color:var(--accent);}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Musical Space Map</h1>
+  <span class="sub">Drive Down I-81 &mdash; Perceptual Analysis</span>
+</header>
+
+<div class="layout">
+<div class="sidebar">
+
+  <div>
+    <div class="section-label">Categories</div>
+    <div id="legend"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Distance Calculator</div>
+    <select id="dist-a" size="1"></select>
+    <select id="dist-b" size="1"></select>
+    <div id="dist-result">Select two items above</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Snapshots</div>
+    <div style="display:flex;gap:4px;margin-bottom:8px;">
+      <input type="text" id="snap-name" placeholder="Label (e.g. I-81 audience)" style="flex:1;">
+      <button class="btn btn-action" onclick="saveSnapshot()" style="white-space:nowrap;">Save</button>
+    </div>
+    <div class="snapshot-list" id="snap-list"></div>
+    <div style="margin-top:8px;">
+      <div class="section-label" style="margin-bottom:4px;">Export / Import</div>
+      <textarea id="export-code" readonly placeholder="Snapshot JSON appears here..."></textarea>
+      <textarea id="import-code" placeholder="Paste JSON to import..."></textarea>
+      <button class="btn btn-action" style="width:100%;margin-top:4px;" onclick="importSnapshot()">Import snapshot</button>
+    </div>
+  </div>
+
+  <div class="panel" id="compare-panel" style="display:none;">
+    <div class="panel-title">Compare snapshots</div>
+    <select id="cmp-a" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:4px;margin-bottom:6px;"></select>
+    <select id="cmp-b" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:4px;margin-bottom:6px;"></select>
+    <button class="btn" style="width:100%;" onclick="compareSnapshots()">Compare</button>
+  </div>
+
+</div>
+
+<div class="main">
+  <div class="toolbar">
+    <button class="btn active" id="btn-audience" onclick="setMode('audience')">Audience</button>
+    <button class="btn" id="btn-composer" onclick="setMode('composer')">Composer</button>
+    <button class="btn" id="btn-diff" onclick="setMode('diff')">Difference</button>
+    <button class="btn" id="btn-hybrid" onclick="setMode('hybrid')">Hybrid</button>
+    <div class="sep"></div>
+    <button class="btn btn-action" onclick="exportHTML()">↓ Export HTML</button>
+    <span id="mode-desc" style="font-size:10px;color:var(--text3);margin-left:8px;"></span>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="mapCanvas"></canvas>
+    <div id="tooltip">
+      <strong id="tt-title"></strong>
+      <div class="tip-cat" id="tt-cat"></div>
+      <div class="tip-reason" id="tt-reason"></div>
+      <div class="tip-dist" id="tt-dist"></div>
+    </div>
+  </div>
+
+  <div class="diff-panel" id="diff-panel">
+    <h3>Largest divergences (audience → composer)</h3>
+    <div class="diff-grid" id="diff-grid"></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const ITEMS = [
+  {id:'vn1',label:'Violin I',cat:'instrument',
+   audience_desc:'Bright, bowed string sound — immediately familiar',
+   composer_desc:'Soprano voice in string texture; high register, agile'},
+  {id:'vn2',label:'Violin II',cat:'instrument',
+   audience_desc:'Essentially identical to Violin I perceptually',
+   composer_desc:'Inner harmony voice; slightly darker functional role'},
+  {id:'vla',label:'Viola',cat:'instrument',
+   audience_desc:'Warm string sound, slightly darker than violin',
+   composer_desc:'Alto register, C-string timbre, inner voice or bass extension'},
+  {id:'vc',label:'Cello',cat:'instrument',
+   audience_desc:'Deep, rich string sound — most recognizable',
+   composer_desc:'Bass/tenor anchor, wide dynamic and timbral range'},
+  {id:'caj',label:'Cajon',cat:'instrument',
+   audience_desc:'Folk percussion — heard as "roots/world music drum"',
+   composer_desc:'Percussive attack with noise spectrum; closest to Bartók pizz. in envelope'},
+  {id:'ride',label:'Ride cymbal',cat:'instrument',
+   audience_desc:'Jazz/rock kit association — timekeeping signal',
+   composer_desc:'Sustained metallic shimmer; different function from cajon despite both being "percussion"'},
+  {id:'sulp',label:'Sul pont.',cat:'technique',
+   audience_desc:'Weird, glassy string sound — "horror movie"',
+   composer_desc:'Pressure point shift creates upper partial emphasis; timbral, not pitch-based'},
+  {id:'glis',label:'Glissandi',cat:'technique',
+   audience_desc:'Swooping sound — folk, film music, or "expressive"',
+   composer_desc:'Continuous pitch space traversal; connects tonal and atonal contexts'},
+  {id:'bpiz',label:'Bartók pizz.',cat:'technique',
+   audience_desc:'Snapping sound; most audiences hear "unusual string effect"',
+   composer_desc:'Percussive attack + body resonance = closest string analog to cajon slap'},
+  {id:'bg',label:'Bluegrass',cat:'style',
+   audience_desc:'Americana genre — banjo, fiddle, country association',
+   composer_desc:'Modal pentatonic vocabulary; Celtic-Appalachian rhythmic DNA; overlaps structurally with jig'},
+  {id:'blues',label:'Blues scales',cat:'harmony',
+   audience_desc:'Blues/jazz/rock — genre label dominates perception',
+   composer_desc:'Flat-3, flat-5, flat-7 additions to pentatonic; scalar siblings with Dorian and Mixolydian'},
+  {id:'dmaj',label:'D major',cat:'harmony',
+   audience_desc:'Bright, happy — most recognizable tonal center in string writing',
+   composer_desc:'Root position of piece; tonic orientation for Mixolydian and relative modes'},
+  {id:'dmix',label:'D mixolydian',cat:'harmony',
+   audience_desc:'"Basically D major with a weird note" — folk/rock color',
+   composer_desc:'Flat-7 modal inflection; shares 6 of 7 pitches with D major; melodic kin to blues scale'},
+  {id:'cmaj',label:'C major',cat:'harmony',
+   audience_desc:'Plain major key — brightest, most familiar',
+   composer_desc:'Relative context to A minor, D major neighbor; structural pivot area'},
+  {id:'bdor',label:'B dorian',cat:'harmony',
+   audience_desc:'"Minor with a bright quality" — slightly exotic',
+   composer_desc:'Raised 6th minor mode; shares pentatonic core with blues; modal bridge between folk and jazz'},
+  {id:'pump',label:'Pump-up mod.',cat:'process',
+   audience_desc:'Exciting energy lift — pop/stadium music association',
+   composer_desc:'Chromatic step modulation up; perceptual manipulation of tonic — structural sibling to metric mod.'},
+  {id:'jig',label:'Jig',cat:'rhythm',
+   audience_desc:'Irish/folk dance — immediate cultural association',
+   composer_desc:'Compound 6/8 subdivision; pulse hierarchy manipulation shared with metric modulation logic'},
+  {id:'slip',label:'Slip-jig',cat:'rhythm',
+   audience_desc:'Nearly identical to jig for most listeners',
+   composer_desc:'9/8 creates genuine metric ambiguity — more structurally complex than jig; closer to metric mod.'},
+  {id:'mmods',label:'Metric mod.',cat:'process',
+   audience_desc:'"Complex, modern, academic" — perceived as difficult',
+   composer_desc:'Subdivision equalization across tempo change; structural kin to jig/slip-jig and pump-up mod.'},
+  {id:'dbrk',label:'Drum break',cat:'rhythm',
+   audience_desc:'Hip-hop/funk/rock energy — very specific stylistic signal',
+   composer_desc:'Texture reset function; percussive accent layer; structurally distinct from cajon time-keeping'},
+  {id:'canon',label:'Canon',cat:'form',
+   audience_desc:'Classical/academic — "Pachelbel Canon" association',
+   composer_desc:'Strict imitative counterpoint; procedural form with fixed rule; structural sibling to through-composed'},
+  {id:'thru',label:'Through-composed',cat:'form',
+   audience_desc:'Perceived as "long, formal classical piece"',
+   composer_desc:'Non-repeating formal logic; shares process orientation with atonal mobile figure'},
+  {id:'triad',label:'Triadic harmony',cat:'harmony',
+   audience_desc:'The sound of "normal" Western music',
+   composer_desc:'Root-position tertian stacking; functional or non-functional depending on voice-leading context'},
+  {id:'nonfunc',label:'Non-functional harm.',cat:'harmony',
+   audience_desc:'Grouped with "dissonant/weird/atonal" by most listeners',
+   composer_desc:'Triadic materials without voice-leading resolution; NOT the same as atonal — crucial distinction'},
+  {id:'atonal',label:'Atonal mobile fig.',cat:'process',
+   audience_desc:'Total separation — perceived as chaotic, "modern", alien',
+   composer_desc:'Process-driven pitch organization; linked to metric mod., through-composed form, and pump-up mod.'},
+];
+
+const CAT_DEF = {
+  instrument:{fill:'#1e2e3e',stroke:'#4a7fa5',text:'#8ab8d8'},
+  technique: {fill:'#1e2e20',stroke:'#4a8a50',text:'#8ac88a'},
+  style:     {fill:'#2e2510',stroke:'#a08030',text:'#d4b060'},
+  harmony:   {fill:'#2a1e2a',stroke:'#8a508a',text:'#c090c0'},
+  rhythm:    {fill:'#1e2a28',stroke:'#407a70',text:'#70b8a8'},
+  process:   {fill:'#2a1e1e',stroke:'#8a4a40',text:'#c08880'},
+  form:      {fill:'#252018',stroke:'#7a7030',text:'#b8a860'},
+};
+
+// Positions are in a 700x480 coordinate space
+// Distances are proportional — tightly related items are very close
+const AUDIENCE_POS = {
+  // String cluster — very tight
+  vn1:{x:108,y:108}, vn2:{x:130,y:90}, vla:{x:88,y:130}, vc:{x:70,y:155},
+  // Techniques near strings but offset
+  sulp:{x:155,y:108}, glis:{x:170,y:130}, bpiz:{x:185,y:108},
+  // Folk/roots cluster
+  bg:{x:270,y:295}, jig:{x:240,y:325}, slip:{x:218,y:348}, caj:{x:300,y:340},
+  // Drums separate from folk
+  ride:{x:355,y:350}, dbrk:{x:380,y:375},
+  // Tonal harmony cluster — tight
+  dmaj:{x:490,y:100}, cmaj:{x:515,y:80}, triad:{x:475,y:125}, dmix:{x:530,y:118}, bdor:{x:550,y:95},
+  // Blues — near folk, away from classical
+  blues:{x:390,y:270},
+  // Modern/classical
+  canon:{x:580,y:195}, nonfunc:{x:590,y:260}, mmods:{x:565,y:310}, thru:{x:605,y:330},
+  // Abstract — very isolated
+  pump:{x:630,y:170}, atonal:{x:645,y:410},
+};
+
+const COMPOSER_POS = {
+  // Modal/tonal family collapses — very tight
+  dmaj:{x:455,y:110}, cmaj:{x:475,y:85}, triad:{x:430,y:90},
+  dmix:{x:455,y:148}, bdor:{x:478,y:148}, blues:{x:430,y:148},
+  nonfunc:{x:530,y:108},
+  // String instruments spread by function
+  vn1:{x:118,y:88}, vn2:{x:148,y:68}, vla:{x:88,y:128}, vc:{x:68,y:165},
+  // Techniques bridge to percussion
+  sulp:{x:195,y:215}, glis:{x:225,y:240}, bpiz:{x:205,y:285},
+  // Percussive attack cluster bridges string technique and drums
+  caj:{x:248,y:318}, dbrk:{x:275,y:345}, ride:{x:210,y:355},
+  // Folk/rhythm cluster
+  bg:{x:308,y:195}, jig:{x:345,y:238}, slip:{x:368,y:265},
+  // Process cluster — metric manipulation
+  mmods:{x:400,y:305}, pump:{x:438,y:338},
+  // Abstract process
+  atonal:{x:480,y:385},
+  // Form — procedural
+  thru:{x:545,y:328}, canon:{x:558,y:262},
+};
+
+// Compute distance score (0=identical, 100=maximally far) for each item in each map
+function computeDistanceMatrix(posMap) {
+  const ids = ITEMS.map(i=>i.id);
+  // Get extents for normalization
+  const xs = ids.map(id=>posMap[id]?.x||0);
+  const ys = ids.map(id=>posMap[id]?.y||0);
+  const maxDist = Math.sqrt(Math.pow(Math.max(...xs)-Math.min(...xs),2)+Math.pow(Math.max(...ys)-Math.min(...ys),2));
+  const matrix = {};
+  ids.forEach(a=>{
+    matrix[a]={};
+    ids.forEach(b=>{
+      if(a===b){matrix[a][b]=0;return;}
+      const pa=posMap[a],pb=posMap[b];
+      if(!pa||!pb){matrix[a][b]=null;return;}
+      const d=Math.sqrt(Math.pow(pa.x-pb.x,2)+Math.pow(pa.y-pb.y,2));
+      matrix[a][b]=Math.round((d/maxDist)*100);
+    });
+  });
+  return matrix;
+}
+
+const AUDIENCE_EDGES = [
+  {a:'vn1',b:'vn2',reason:'Nearly identical timbre — same instrument'},
+  {a:'vn1',b:'vla',reason:'Both bowed strings; similar sound world'},
+  {a:'vla',b:'vc',reason:'Lower bowed strings; close in character'},
+  {a:'vn1',b:'sulp',reason:'Sul pont. is heard as a violin color'},
+  {a:'glis',b:'vla',reason:'Glissandi most audibly associated with strings'},
+  {a:'bpiz',b:'vc',reason:'Bartók pizz. most strongly associated with cello'},
+  {a:'caj',b:'dbrk',reason:'Both groove-based percussion contexts'},
+  {a:'ride',b:'dbrk',reason:'Cymbal read as part of kit/drum context'},
+  {a:'caj',b:'bg',reason:'Cajon read as folk/roots percussion'},
+  {a:'jig',b:'slip',reason:'Nearly identical Irish dance forms to casual listener'},
+  {a:'bg',b:'jig',reason:'Bluegrass and jig share Americana/folk aesthetic'},
+  {a:'dmaj',b:'cmaj',reason:'Both plain major keys — functionally identical to most listeners'},
+  {a:'triad',b:'dmaj',reason:'Triadic harmony IS major key language to most audiences'},
+  {a:'dmix',b:'bdor',reason:'Both heard as "major with a different note" — modally alike on surface'},
+  {a:'nonfunc',b:'atonal',reason:'Both perceived as "modern, dissonant, weird"'},
+  {a:'mmods',b:'thru',reason:'Both feel formal/academic/complex to non-specialists'},
+  {a:'blues',b:'bg',reason:'Both associated with American folk/roots genre identity'},
+];
+
+const COMPOSER_EDGES = [
+  {a:'dmaj',b:'cmaj',reason:'Parallel major keys, same diatonic structure'},
+  {a:'dmix',b:'bdor',reason:'Both modes share pentatonic subset with blues scale'},
+  {a:'bdor',b:'blues',reason:'Dorian & blues share flat-7, minor 3rd — nearly identical melodic material'},
+  {a:'dmix',b:'blues',reason:'Mixolydian flat-7 overlaps directly with blues scale vocabulary'},
+  {a:'triad',b:'dmaj',reason:'Triadic harmony is the native language of major tonality'},
+  {a:'nonfunc',b:'triad',reason:'Non-functional harmony still uses triads — same material, different syntax'},
+  {a:'nonfunc',b:'atonal',reason:'Both resist functional resolution, but non-functional ≠ atonal — adjacent not identical'},
+  {a:'bpiz',b:'caj',reason:'Sharp percussive attack + short decay + noise spectrum: envelope siblings'},
+  {a:'bpiz',b:'dbrk',reason:'Pizz. accent articulation mirrors drum break rhythmic role'},
+  {a:'sulp',b:'glis',reason:'Both alter string timbre/pitch in extended-technique space'},
+  {a:'jig',b:'slip',reason:'6/8 vs 9/8 — compound meter siblings'},
+  {a:'jig',b:'mmods',reason:'Compound meter subdivision is structurally related to metric modulation logic'},
+  {a:'slip',b:'mmods',reason:'9/8 creates metric ambiguity — structural kin to metric mod.'},
+  {a:'mmods',b:'pump',reason:'Both manipulate rate/tonal perception — different surface, same goal'},
+  {a:'pump',b:'atonal',reason:'Both disrupt tonal/temporal expectations; related perceptual function'},
+  {a:'atonal',b:'thru',reason:'Atonal mobile figure implies non-repeating, through-composed logic'},
+  {a:'thru',b:'canon',reason:'Both are procedural compositional forms'},
+  {a:'bg',b:'blues',reason:'Bluegrass pentatonic vocabulary strongly overlaps blues scale'},
+  {a:'bg',b:'jig',reason:'Bluegrass and jig share Celtic-Appalachian historical-rhythmic roots'},
+  {a:'vn1',b:'vn2',reason:'Same instrument, same register, same technique access'},
+  {a:'vla',b:'vc',reason:'Lower strings — range overlap, similar technique palette'},
+];
+
+// Cluster zone definitions for background labels
+const CLUSTERS = {
+  audience:[
+    {label:'string family',x:135,y:120,r:90},
+    {label:'folk / roots',x:272,y:325,r:75},
+    {label:'percussion',x:358,y:358,r:52},
+    {label:'tonal harmony',x:508,y:105,r:80},
+    {label:'process / form',x:585,y:285,r:68},
+  ],
+  composer:[
+    {label:'modal family',x:465,y:118,r:75},
+    {label:'string voices',x:108,y:118,r:68},
+    {label:'percussive attack',x:230,y:318,r:65},
+    {label:'folk / rhythm',x:340,y:225,r:68},
+    {label:'process / rate',x:428,y:340,r:65},
+    {label:'procedural form',x:552,y:295,r:52},
+  ],
+};
+
+let mode = 'audience';
+let canvas, ctx, W, H, dpr;
+let animPos = {};
+let hiddenCats = new Set();
+let snapshots = JSON.parse(localStorage.getItem('musical_snapshots')||'[]');
+let hoveredEdge = null;
+let hoveredNode = null;
+
+const MODE_DESC = {
+  audience:'Surface listening — timbre, genre, instrumentation dominate',
+  composer:'Structural analysis — pitch systems, rhythm, sound production',
+  diff:'Arrows show magnitude of perceptual shift; orange = large divergence',
+  hybrid:'Weighted blend (60% audience / 40% composer)',
+};
+
+function getTargetPos(m){
+  if(m==='audience') return AUDIENCE_POS;
+  if(m==='composer') return COMPOSER_POS;
+  if(m==='diff') return AUDIENCE_POS;
+  if(m==='hybrid'){
+    const out={};
+    ITEMS.forEach(it=>{
+      const a=AUDIENCE_POS[it.id],c=COMPOSER_POS[it.id];
+      if(!a||!c){out[it.id]=a||c;return;}
+      out[it.id]={x:a.x*0.6+c.x*0.4,y:a.y*0.6+c.y*0.4};
+    });
+    return out;
+  }
+  return AUDIENCE_POS;
+}
+
+function lerpPos(a,b,t){return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};}
+function ease(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+function animate(from,to,dur,onDone){
+  const start=performance.now();
+  const snap={};
+  ITEMS.forEach(it=>{ snap[it.id]={...from[it.id]}; });
+  function frame(now){
+    const p=ease(Math.min((now-start)/dur,1));
+    ITEMS.forEach(it=>{
+      const s=snap[it.id],t=to[it.id];
+      if(s&&t) animPos[it.id]={x:s.x+(t.x-s.x)*p,y:s.y+(t.y-s.y)*p};
+    });
+    draw();
+    if(p<1) requestAnimationFrame(frame);
+    else if(onDone) onDone();
+  }
+  requestAnimationFrame(frame);
+}
+
+function setMode(m){
+  const prev = {...animPos};
+  mode=m;
+  ['audience','composer','diff','hybrid'].forEach(id=>{
+    const b=document.getElementById('btn-'+id);
+    if(b) b.classList.toggle('active',id===m);
+  });
+  document.getElementById('mode-desc').textContent=MODE_DESC[m];
+  document.getElementById('diff-panel').classList.toggle('visible',m==='diff');
+  if(m==='diff') buildDiffPanel();
+  animate(prev,getTargetPos(m),550);
+  updateDistSelects();
+}
+
+function draw(){
+  if(!ctx) return;
+  ctx.clearRect(0,0,W,H);
+  const sx=W/700,sy=H/480;
+
+  // Draw cluster zones
+  const clusters=CLUSTERS[mode==='composer'?'composer':'audience']||[];
+  clusters.forEach(cl=>{
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cl.x*sx,cl.y*sy,cl.r*Math.min(sx,sy),0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.025)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.06)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([3,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font=`10px 'DM Mono',monospace`;
+    ctx.fillStyle='rgba(255,255,255,0.2)';
+    ctx.textAlign='center';
+    ctx.fillText(cl.label,cl.x*sx,(cl.y-cl.r-8)*sy);
+    ctx.restore();
+  });
+
+  const visItems=ITEMS.filter(it=>!hiddenCats.has(it.cat));
+  const visIds=new Set(visItems.map(i=>i.id));
+  const edges=mode==='composer'?COMPOSER_EDGES:mode==='audience'?AUDIENCE_EDGES:[];
+
+  // Diff arrows
+  if(mode==='diff'){
+    ITEMS.forEach(it=>{
+      if(!visIds.has(it.id)) return;
+      const ap=AUDIENCE_POS[it.id],cp=COMPOSER_POS[it.id];
+      if(!ap||!cp) return;
+      const dx=(cp.x-ap.x)*sx,dy=(cp.y-ap.y)*sy;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<6) return;
+      const ax=ap.x*sx,ay=ap.y*sy,bx=cp.x*sx,by=cp.y*sy;
+      const isHov=(hoveredNode===it.id);
+      ctx.save();
+      const mag=dist>55?'large':dist>28?'medium':'small';
+      const col=mag==='large'?`rgba(200,169,110,${isHov?1:0.6})`:mag==='medium'?`rgba(158,122,158,${isHov?1:0.5})`:`rgba(80,80,80,${isHov?0.8:0.3})`;
+      ctx.strokeStyle=col;
+      ctx.lineWidth=isHov?2:1.5;
+      ctx.setLineDash([4,3]);
+      ctx.beginPath();
+      ctx.moveTo(ax,ay);
+      ctx.lineTo(bx,by);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const angle=Math.atan2(dy,dx);
+      const hs=7;
+      ctx.fillStyle=col;
+      ctx.beginPath();
+      ctx.moveTo(bx,by);
+      ctx.lineTo(bx-hs*Math.cos(angle-0.42),by-hs*Math.sin(angle-0.42));
+      ctx.lineTo(bx-hs*Math.cos(angle+0.42),by-hs*Math.sin(angle+0.42));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+
+  // Edges
+  edges.forEach(e=>{
+    if(!visIds.has(e.a)||!visIds.has(e.b)) return;
+    const a=animPos[e.a],b=animPos[e.b];
+    if(!a||!b) return;
+    const isHov=(hoveredEdge&&hoveredEdge.a===e.a&&hoveredEdge.b===e.b);
+    ctx.save();
+    ctx.strokeStyle=isHov?'rgba(200,169,110,0.75)':'rgba(255,255,255,0.1)';
+    ctx.lineWidth=isHov?1.5:0.8;
+    ctx.beginPath();
+    ctx.moveTo(a.x*sx,a.y*sy);
+    ctx.lineTo(b.x*sx,b.y*sy);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // Nodes
+  visItems.forEach(it=>{
+    const pos=animPos[it.id];
+    if(!pos) return;
+    const c=CAT_DEF[it.cat];
+    const x=pos.x*sx,y=pos.y*sy;
+    const isHov=(hoveredNode===it.id);
+    const r=isHov?8:5.5;
+    ctx.save();
+    if(isHov){
+      ctx.beginPath();
+      ctx.arc(x,y,14,0,Math.PI*2);
+      ctx.fillStyle='rgba(200,169,110,0.08)';
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=c.fill;
+    ctx.strokeStyle=isHov?c.text:c.stroke;
+    ctx.lineWidth=isHov?2:1;
+    ctx.fill();
+    ctx.stroke();
+    ctx.font=`${isHov?11.5:10}px 'DM Mono',monospace`;
+    ctx.fillStyle=isHov?c.text:'rgba(180,175,165,0.85)';
+    ctx.textAlign='center';
+    // Label below if near top, above otherwise
+    const ly=y>40?y-r-5:y+r+12;
+    ctx.fillText(it.label,x,ly);
+    ctx.restore();
+  });
+}
+
+function getHover(mx,my){
+  const rect=canvas.getBoundingClientRect();
+  const px=(mx-rect.left)*(W/rect.width),py=(my-rect.top)*(H/rect.height);
+  const sx=W/700,sy=H/480;
+  const visIds=new Set(ITEMS.filter(i=>!hiddenCats.has(i.cat)).map(i=>i.id));
+
+  for(const it of ITEMS){
+    if(!visIds.has(it.id)) continue;
+    const pos=animPos[it.id];
+    if(!pos) continue;
+    const d=Math.sqrt(Math.pow(pos.x*sx-px,2)+Math.pow(pos.y*sy-py,2));
+    if(d<14) return {type:'node',id:it.id};
+  }
+
+  const edges=mode==='composer'?COMPOSER_EDGES:mode==='audience'?AUDIENCE_EDGES:[];
+  for(const e of edges){
+    if(!visIds.has(e.a)||!visIds.has(e.b)) continue;
+    const a=animPos[e.a],b=animPos[e.b];
+    if(!a||!b) continue;
+    const ax=a.x*sx,ay=a.y*sy,bx=b.x*sx,by=b.y*sy;
+    const len2=(bx-ax)**2+(by-ay)**2;
+    if(len2<1) continue;
+    const t=Math.max(0,Math.min(1,((px-ax)*(bx-ax)+(py-ay)*(by-ay))/len2));
+    const nx=ax+t*(bx-ax),ny=ay+t*(by-ay);
+    if(Math.sqrt((px-nx)**2+(py-ny)**2)<8) return {type:'edge',edge:e};
+  }
+
+  if(mode==='diff'){
+    for(const it of ITEMS){
+      if(!visIds.has(it.id)) continue;
+      const ap=AUDIENCE_POS[it.id],cp=COMPOSER_POS[it.id];
+      if(!ap||!cp) continue;
+      const ax=ap.x*sx,ay=ap.y*sy,bx=cp.x*sx,by=cp.y*sy;
+      const len2=(bx-ax)**2+(by-ay)**2;
+      if(len2<100) continue;
+      const t=Math.max(0,Math.min(1,((px-ax)*(bx-ax)+(py-ay)*(by-ay))/len2));
+      const nx=ax+t*(bx-ax),ny=ay+t*(by-ay);
+      if(Math.sqrt((px-nx)**2+(py-ny)**2)<9) return {type:'arrow',id:it.id};
+    }
+  }
+  return null;
+}
+
+function showTooltip(info,mx,my){
+  const tt=document.getElementById('tooltip');
+  const rect=canvas.getBoundingClientRect();
+  if(!info){tt.style.display='none';return;}
+  let title='',cat='',reason='',dist='';
+  const aMatrix=computeDistanceMatrix(AUDIENCE_POS);
+  const cMatrix=computeDistanceMatrix(COMPOSER_POS);
+
+  if(info.type==='node'){
+    const it=ITEMS.find(i=>i.id===info.id);
+    title=it.label; cat=it.cat;
+    reason=mode==='composer'?it.composer_desc:mode==='audience'||mode==='hybrid'?it.audience_desc:it.audience_desc;
+    if(mode==='diff'){
+      const ap=AUDIENCE_POS[it.id],cp=COMPOSER_POS[it.id];
+      const shift=Math.round(Math.sqrt(Math.pow((cp.x-ap.x)*(W/700),2)+Math.pow((cp.y-ap.y)*(H/480),2)));
+      const norm=Math.round((shift/Math.sqrt(W*W+H*H))*100);
+      const mag=norm>8?'large divergence':norm>4?'moderate shift':'minimal shift';
+      dist=`Audience→Composer shift: ${norm}/100 (${mag})`;
+      reason=it.composer_desc;
+    }
+  } else if(info.type==='edge'){
+    const e=info.edge;
+    const la=ITEMS.find(i=>i.id===e.a),lb=ITEMS.find(i=>i.id===e.b);
+    title=`${la.label} — ${lb.label}`;
+    cat=mode==='composer'?'structural link':'surface link';
+    reason=e.reason;
+    const m=mode==='composer'?cMatrix:aMatrix;
+    dist=`Distance score: ${m[e.a][e.b]}/100`;
+  } else if(info.type==='arrow'){
+    const it=ITEMS.find(i=>i.id===info.id);
+    title=`${it.label} — divergence`;
+    cat='perception gap';
+    const diffs=[
+      {id:'blues',r:'Audience hears genre; composer sees scalar identity shared with Dorian/Mixolydian'},
+      {id:'bg',r:'Audience hears Americana; composer sees modal + rhythmic structural links with Celtic tradition'},
+      {id:'bpiz',r:'Audience clusters with strings; composer sees percussive attack — closer to cajon in envelope'},
+      {id:'caj',r:'Audience groups with folk percussion; composer links to string percussive techniques'},
+      {id:'jig',r:'Audience hears folk dance; composer sees compound subdivision — structural kin to metric modulation'},
+      {id:'slip',r:'Perceived as identical to jig; structurally more complex — 9/8 metric ambiguity'},
+      {id:'mmods',r:'Audience hears difficulty; composer sees it sharing logic with jig, slip-jig, and pump-up mod.'},
+      {id:'atonal',r:'Audience hears chaos; composer hears process — linked to metric mod. and through-composed form'},
+      {id:'nonfunc',r:'Audience conflates with atonality; composer distinguishes: non-functional harmony ≠ atonal'},
+      {id:'pump',r:'Audience hears "pop energy lift"; composer sees chromatic modulation — structural sibling to metric mod.'},
+    ];
+    const d=diffs.find(x=>x.id===it.id);
+    reason=d?d.r:'Position shifts between listener and analyst perspective';
+    const adist=aMatrix[it.id], cdist=cMatrix[it.id];
+    dist='Hover arrows to compare neighborhood changes';
+  }
+
+  document.getElementById('tt-title').textContent=title;
+  document.getElementById('tt-cat').textContent=cat;
+  document.getElementById('tt-reason').textContent=reason;
+  document.getElementById('tt-dist').textContent=dist;
+  tt.style.display='block';
+  let tx=mx-rect.left+16,ty=my-rect.top-10;
+  if(tx+230>rect.width) tx=mx-rect.left-244;
+  if(ty+tt.offsetHeight>rect.height) ty=my-rect.top-tt.offsetHeight-8;
+  tt.style.left=tx+'px';
+  tt.style.top=ty+'px';
+}
+
+function buildLegend(){
+  const leg=document.getElementById('legend');
+  leg.innerHTML='';
+  Object.entries(CAT_DEF).forEach(([cat,c])=>{
+    const d=document.createElement('div');
+    d.className='legend-item'+(hiddenCats.has(cat)?' muted':'');
+    d.innerHTML=`<div class="legend-dot" style="background:${c.fill};border:1.5px solid ${c.stroke};"></div><span class="legend-label">${cat}</span>`;
+    d.onclick=()=>{
+      if(hiddenCats.has(cat)) hiddenCats.delete(cat); else hiddenCats.add(cat);
+      d.classList.toggle('muted',hiddenCats.has(cat));
+      draw();
+    };
+    leg.appendChild(d);
+  });
+}
+
+function updateDistSelects(){
+  const sa=document.getElementById('dist-a');
+  const sb=document.getElementById('dist-b');
+  const vals=[sa.value,sb.value];
+  [sa,sb].forEach((sel,i)=>{
+    sel.innerHTML='<option value="">— select item —</option>';
+    ITEMS.forEach(it=>{
+      const o=document.createElement('option');
+      o.value=it.id; o.textContent=it.label;
+      if(it.id===vals[i]) o.selected=true;
+      sel.appendChild(o);
+    });
+  });
+  computeDist();
+}
+
+function computeDist(){
+  const a=document.getElementById('dist-a').value;
+  const b=document.getElementById('dist-b').value;
+  const el=document.getElementById('dist-result');
+  if(!a||!b||a===b){el.textContent='Select two items above';return;}
+  const am=computeDistanceMatrix(AUDIENCE_POS);
+  const cm=computeDistanceMatrix(COMPOSER_POS);
+  const hm=computeHybridMatrix();
+  const ad=am[a][b],cd=cm[a][b],hd=hm[a][b];
+  const la=ITEMS.find(i=>i.id===a).label,lb=ITEMS.find(i=>i.id===b).label;
+  const delta=Math.abs(ad-cd);
+  el.innerHTML=`<span style="color:var(--text2)">${la} ↔ ${lb}</span><br>
+Audience: <b style="color:var(--blue)">${ad}/100</b><br>
+Composer: <b style="color:var(--accent2)">${cd}/100</b><br>
+Hybrid: <b style="color:var(--accent3)">${hd}/100</b><br>
+<span style="color:${delta>20?'var(--accent)':'var(--text3)'}">Gap: ${delta} pts${delta>20?' ← notable':delta>10?' ← moderate':''}</span>`;
+}
+
+function computeHybridMatrix(){
+  const ids=ITEMS.map(i=>i.id);
+  const hybrid={};
+  ids.forEach(a=>{
+    hybrid[a]={};
+    ids.forEach(b=>{
+      if(a===b){hybrid[a][b]=0;return;}
+      const pa=AUDIENCE_POS[a],pb=AUDIENCE_POS[b];
+      const ca=COMPOSER_POS[a],cb=COMPOSER_POS[b];
+      if(!pa||!pb||!ca||!cb){hybrid[a][b]=null;return;}
+      const hax=pa.x*0.6+ca.x*0.4,hay=pa.y*0.6+ca.y*0.4;
+      const hbx=pb.x*0.6+cb.x*0.4,hby=pb.y*0.6+cb.y*0.4;
+      const xs=ITEMS.map(i=>AUDIENCE_POS[i.id].x*0.6+COMPOSER_POS[i.id].x*0.4);
+      const ys=ITEMS.map(i=>AUDIENCE_POS[i.id].y*0.6+COMPOSER_POS[i.id].y*0.4);
+      const maxD=Math.sqrt(Math.pow(Math.max(...xs)-Math.min(...xs),2)+Math.pow(Math.max(...ys)-Math.min(...ys),2));
+      hybrid[a][b]=Math.round(Math.sqrt(Math.pow(hax-hbx,2)+Math.pow(hay-hby,2))/maxD*100);
+    });
+  });
+  return hybrid;
+}
+
+function buildDiffPanel(){
+  const am=computeDistanceMatrix(AUDIENCE_POS);
+  const cm=computeDistanceMatrix(COMPOSER_POS);
+  // For each item, compute average distance change
+  const deltas=ITEMS.map(it=>{
+    const others=ITEMS.filter(o=>o.id!==it.id);
+    const avgDelta=others.reduce((sum,o)=>sum+Math.abs((am[it.id][o.id]||0)-(cm[it.id][o.id]||0)),0)/others.length;
+    return {id:it.id,label:it.label,delta:Math.round(avgDelta)};
+  }).sort((a,b)=>b.delta-a.delta).slice(0,12);
+
+  const grid=document.getElementById('diff-grid');
+  grid.innerHTML=deltas.map(d=>{
+    const mag=d.delta>15?'large':d.delta>8?'medium':'small';
+    const col=mag==='large'?'var(--accent)':mag==='medium'?'var(--accent3)':'var(--text3)';
+    return `<div class="diff-card ${mag}"><div class="item-name">${d.label}</div><div class="item-delta" style="color:${col}">avg shift: ${d.delta} pts</div></div>`;
+  }).join('');
+}
+
+function saveSnapshot(){
+  const name=document.getElementById('snap-name').value.trim()||`Snapshot ${snapshots.length+1}`;
+  const am=computeDistanceMatrix(AUDIENCE_POS);
+  const cm=computeDistanceMatrix(COMPOSER_POS);
+  const hm=computeHybridMatrix();
+  const snap={name,timestamp:Date.now(),piece:'Drive Down I-81',mode,audience:am,composer:cm,hybrid:hm,items:ITEMS.map(i=>i.id)};
+  snapshots.push(snap);
+  localStorage.setItem('musical_snapshots',JSON.stringify(snapshots));
+  document.getElementById('export-code').value=JSON.stringify(snap,null,2);
+  renderSnapList();
+}
+
+function renderSnapList(){
+  const list=document.getElementById('snap-list');
+  list.innerHTML=snapshots.map((s,i)=>`<div class="snap-item"><span class="snap-name" title="${s.name}">${s.name}</span><button class="snap-btn" onclick="loadSnapExport(${i})">export</button><button class="snap-btn" onclick="deleteSnap(${i})" style="color:var(--red)">✕</button></div>`).join('');
+  const cmpA=document.getElementById('cmp-a');
+  const cmpB=document.getElementById('cmp-b');
+  if(cmpA&&cmpB){
+    [cmpA,cmpB].forEach(sel=>{
+      const v=sel.value;
+      sel.innerHTML=snapshots.map((s,i)=>`<option value="${i}">${s.name}</option>`).join('');
+      sel.value=v;
+    });
+  }
+  document.getElementById('compare-panel').style.display=snapshots.length>1?'block':'none';
+}
+
+function loadSnapExport(i){
+  document.getElementById('export-code').value=JSON.stringify(snapshots[i],null,2);
+}
+
+function deleteSnap(i){
+  snapshots.splice(i,1);
+  localStorage.setItem('musical_snapshots',JSON.stringify(snapshots));
+  renderSnapList();
+}
+
+function importSnapshot(){
+  try{
+    const s=JSON.parse(document.getElementById('import-code').value.trim());
+    if(!s.name||!s.audience) throw new Error('Invalid snapshot');
+    snapshots.push(s);
+    localStorage.setItem('musical_snapshots',JSON.stringify(snapshots));
+    renderSnapList();
+    document.getElementById('import-code').value='';
+    alert(`Imported: ${s.name}`);
+  }catch(e){alert('Invalid JSON — paste a full snapshot export.');}
+}
+
+function compareSnapshots(){
+  const a=snapshots[document.getElementById('cmp-a').value];
+  const b=snapshots[document.getElementById('cmp-b').value];
+  if(!a||!b||a===b){alert('Select two different snapshots');return;}
+  const ids=a.items||ITEMS.map(i=>i.id);
+  const lines=ids.map(id=>{
+    const la=ITEMS.find(i=>i.id===id)?.label||id;
+    const rows=ids.filter(bid=>bid!==id).map(bid=>{
+      const da=(a.audience[id]?.[bid]||0);
+      const db=(b.audience[id]?.[bid]||0);
+      return Math.abs(da-db);
+    });
+    const avg=rows.reduce((s,v)=>s+v,0)/rows.length;
+    return {label:la,delta:Math.round(avg)};
+  }).sort((x,y)=>y.delta-x.delta);
+  const txt=`Comparison: ${a.name} vs ${b.name}\n\n`+lines.map(l=>`${l.label.padEnd(24)}Δ ${l.delta} pts`).join('\n');
+  document.getElementById('export-code').value=txt;
+}
+
+function exportHTML(){
+  const src=document.documentElement.outerHTML;
+  const blob=new Blob([src],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url; link.download='musical-space-map-i81.html';
+  link.click(); URL.revokeObjectURL(url);
+}
+
+window.setMode=setMode;
+window.saveSnapshot=saveSnapshot;
+window.loadSnapExport=loadSnapExport;
+window.deleteSnap=deleteSnap;
+window.importSnapshot=importSnapshot;
+window.compareSnapshots=compareSnapshots;
+window.exportHTML=exportHTML;
+
+document.addEventListener('DOMContentLoaded',()=>{
+  canvas=document.getElementById('mapCanvas');
+  const wrap=canvas.parentElement;
+  dpr=window.devicePixelRatio||1;
+  function resize(){
+    const r=wrap.getBoundingClientRect();
+    W=r.width; H=r.height;
+    canvas.width=W*dpr; canvas.height=H*dpr;
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    ctx=canvas.getContext('2d');
+    ctx.scale(dpr,dpr);
+    draw();
+  }
+  resize();
+  window.addEventListener('resize',resize);
+
+  ITEMS.forEach(it=>{ animPos[it.id]={...AUDIENCE_POS[it.id]}; });
+  setMode('audience');
+  buildLegend();
+  updateDistSelects();
+  renderSnapList();
+
+  document.getElementById('dist-a').addEventListener('change',computeDist);
+  document.getElementById('dist-b').addEventListener('change',computeDist);
+
+  canvas.addEventListener('mousemove',e=>{
+    const h=getHover(e.clientX,e.clientY);
+    hoveredNode=h?.type==='node'||h?.type==='arrow'?h.id:null;
+    hoveredEdge=h?.type==='edge'?h.edge:null;
+    showTooltip(h,e.clientX,e.clientY);
+    draw();
+  });
+  canvas.addEventListener('mouseleave',()=>{
+    hoveredNode=null; hoveredEdge=null;
+    document.getElementById('tooltip').style.display='none';
+    draw();
+  });
+});
+</script>
+</body>
+</html>
